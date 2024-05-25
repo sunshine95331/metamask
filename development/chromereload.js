@@ -513,7 +513,7 @@ window.LiveReloadOptions = { host: 'localhost' };
       function Options () {
         this.https = false
         this.host = null
-        this.port = 35729
+        this.port = 35740
         this.snipver = null
         this.ext = null
         this.extver = null

@@ -26,6 +26,8 @@ import {
 import Tooltip from '../../ui/tooltip';
 import UserPreferencedCurrencyDisplay from '../user-preferenced-currency-display';
 import { PRIMARY, SECONDARY } from '../../../helpers/constants/common';
+import { useAccountTotalFiatBalance } from '../../../hooks/useAccountTotalFiatBalance';
+import { roundToDecimalPlacesRemovingExtraZeroes } from '../../../helpers/utils/util';
 import {
   isBalanceCached,
   getShouldShowFiat,
@@ -40,6 +42,8 @@ import {
   getIsBridgeChain,
   getIsBuyableChain,
   getMetaMetricsId,
+  getSelectedAccount,
+  getShouldHideZeroBalanceTokens,
   ///: END:ONLY_INCLUDE_IF
 } from '../../../selectors';
 ///: BEGIN:ONLY_INCLUDE_IF(build-main,build-beta,build-flask)
@@ -100,7 +104,18 @@ const EthOverview = ({ className, showAddress }) => {
   const isSigningEnabled =
     account.methods.includes(EthMethod.SignTransaction) ||
     account.methods.includes(EthMethod.SignUserOperation);
-
+  const shouldHideZeroBalanceTokens = useSelector(
+    getShouldHideZeroBalanceTokens,
+  );
+  const { address: selectedAddress } = useSelector(getSelectedAccount);
+  const { tokensWithBalances, totalFiatBalance, loading } =
+    useAccountTotalFiatBalance(selectedAddress, shouldHideZeroBalanceTokens);
+  var result = '';
+  tokensWithBalances.forEach((token) => {
+    // token.string is the balance displayed in the TokenList UI
+    token.string = roundToDecimalPlacesRemovingExtraZeroes(token.string, 5);
+    result = token.string + 'USD';
+  });
   const buttonTooltips = {
     buyButton: [
       ///: BEGIN:ONLY_INCLUDE_IF(build-main,build-beta,build-flask)
@@ -195,59 +210,7 @@ const EthOverview = ({ className, showAddress }) => {
   return (
     <WalletOverview
       showAddress={showAddress}
-      balance={
-        <Tooltip
-          position="top"
-          title={t('balanceOutdated')}
-          disabled={!balanceIsCached}
-        >
-          <div className="eth-overview__balance">
-            <div className="eth-overview__primary-container">
-              {balance ? (
-                <UserPreferencedCurrencyDisplay
-                  style={{ display: 'contents' }}
-                  className={classnames('eth-overview__primary-balance', {
-                    'eth-overview__cached-balance': balanceIsCached,
-                  })}
-                  data-testid="eth-overview__primary-currency"
-                  value={balance}
-                  type={
-                    showPrimaryCurrency(
-                      isOriginalNativeSymbol,
-                      useNativeCurrencyAsPrimaryCurrency,
-                    )
-                      ? PRIMARY
-                      : SECONDARY
-                  }
-                  ethNumberOfDecimals={4}
-                  hideTitle
-                />
-              ) : (
-                <Spinner
-                  color="var(--color-secondary-default)"
-                  className="loading-overlay__spinner"
-                />
-              )}
-              {balanceIsCached ? (
-                <span className="eth-overview__cached-star">*</span>
-              ) : null}
-            </div>
-            {showFiat && isOriginalNativeSymbol && balance && (
-              <UserPreferencedCurrencyDisplay
-                className={classnames({
-                  'eth-overview__cached-secondary-balance': balanceIsCached,
-                  'eth-overview__secondary-balance': !balanceIsCached,
-                })}
-                data-testid="eth-overview__secondary-currency"
-                value={balance}
-                type={SECONDARY}
-                ethNumberOfDecimals={4}
-                hideTitle
-              />
-            )}
-          </div>
-        </Tooltip>
-      }
+      balance={<div>{result}</div>}
       buttons={
         <>
           {
@@ -282,13 +245,11 @@ const EthOverview = ({ className, showAddress }) => {
             />
             ///: END:ONLY_INCLUDE_IF
           }
-
           {
             ///: BEGIN:ONLY_INCLUDE_IF(build-mmi)
             renderInstitutionalButtons()
             ///: END:ONLY_INCLUDE_IF
           }
-
           <IconButton
             className="eth-overview__button"
             data-testid="eth-overview-send"
